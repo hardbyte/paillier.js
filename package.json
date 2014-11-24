@@ -1,0 +1,17 @@
+{
+  "name": "homomorphicjs",
+  "version": "1.0.0",
+  "description": "Paillier Encryption for Javascript",
+  "main": "main.js",
+  "scripts": {
+    "test": "tape test/**/*.js | faucet"
+  },
+  "author": "Brian Thorne",
+  "license": "GPLv3",
+  "dependencies": {
+    "jsbn": "0.0.0"
+  },
+  "devDependencies": {
+    "faucet": "0.0.1"
+  }
+}
