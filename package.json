@@ -4,7 +4,7 @@
   "description": "Paillier Encryption for Javascript",
   "main": "main.js",
   "scripts": {
-    "test": "tape test/**/*.js | faucet"
+    "test": "tape test/**/*.js"
   },
   "author": "Brian Thorne",
   "repository": "https://github.com/hardbyte/paillier.js",
