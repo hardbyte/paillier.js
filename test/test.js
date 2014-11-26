@@ -2,6 +2,8 @@ var phe = require('../');
 var test = require('tape');
 var bn = require('jsbn');
 
+var ONLY_FAST = false;
+
 function generateRandomNumbers(n){
     var results = [];
     for (var i = 0; i < n; i++) {
@@ -13,10 +15,12 @@ function generateRandomNumbers(n){
 var keypairs = [];
 
 test('Generate paillier keypairs', function (t) {
-    var keyLengthsToTest = [64, 128, 256, 512
-        // commented out in the interests of testing speed during development
-        //,1024, 2048
-    ];
+    var keyLengthsToTest = [64, 128, 256, 512];
+
+    if(!ONLY_FAST) {
+        // in the interests of testing speed during development
+        Array.prototype.push.apply(keyLengthsToTest, [1024, 2048, 4096]);
+    }
 
     t.plan(keyLengthsToTest.length);
 
@@ -50,21 +54,23 @@ test('Random int encryption/decryption', function (t) {
     });
 });
 
+if(!ONLY_FAST) {
+    test('Encrypt/Decrypt large number', function (t) {
+        t.plan(1);
+        var data = "123456789123456789123456789123456789";
 
-test('Encrypt/Decrypt large number', function(t){
-    t.plan(1);
-    var data = "123456789123456789123456789123456789";
-
-    var keypair = phe.generate_paillier_keypair();
-    var ciphertext = keypair.public_key.raw_encrypt(data);
-    var decryption = keypair.private_key.raw_decrypt(ciphertext).toString();
-    t.equal(decryption, data, 'Decrypted value should be same as input');
-});
+        var keypair = phe.generate_paillier_keypair();
+        var ciphertext = keypair.public_key.raw_encrypt(data);
+        var decryption = keypair.private_key.raw_decrypt(ciphertext).toString();
+        t.equal(decryption, data, 'Decrypted value should be same as input');
+    });
+}
 
 test('ModuloN', function(t){
     t.plan(1);
 
     var keypair = phe.generate_paillier_keypair();
+
     // Check encryption/decryption works for n - 1
     var plaintext1 = keypair.public_key.n.subtract(bn.ONE);
     console.log('The plaintext to encrypt: ');

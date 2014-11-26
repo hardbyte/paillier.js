@@ -95,14 +95,9 @@ function publicKey(g, n){
 
         var nude_ciphertext;
         if( (pk.n.subtract(pk.max_int).compareTo(plaintext) <= 0) && (plaintext < pk.n)){
-            console.log("TODO - Extremely large plaintext - TODO");
-            console.log("Plaintext is: " + plaintext.toString());
-            console.log("N is: " + pk.n.toString());
-            console.log("Max int is: " + pk.max_int.toString());
-
             var neg_plaintext = pk.n.subtract(plaintext);
-            console.log('neg:' + neg_plaintext.toString());
-
+            var neg_ciphertext = pk.g.modPow(neg_plaintext, pk.nsquare);
+            nude_ciphertext = neg_ciphertext.modInverse(pk.nsquare);
         } else {
             nude_ciphertext = pk.g.modPow(plaintext, pk.nsquare);
         }
@@ -158,8 +153,8 @@ function getprimeover(bitLength){
 exports.generate_paillier_keypair = function(n_length){
     var keysize;
     if(n_length == undefined){
-        console.log("Using default key size");
         keysize = 1024;
+        console.log("Using default key size of " + keysize + " bits");
     } else {
         keysize = n_length;
     }
