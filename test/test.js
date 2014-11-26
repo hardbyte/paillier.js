@@ -50,10 +50,12 @@ test('Random int encryption/decryption', function (t) {
     });
 });
 
-var keypair = phe.generate_paillier_keypair();
+
 test('Encrypt/Decrypt large number', function(t){
     t.plan(1);
     var data = "123456789123456789123456789123456789";
+
+    var keypair = phe.generate_paillier_keypair();
     var ciphertext = keypair.public_key.raw_encrypt(data);
     var decryption = keypair.private_key.raw_decrypt(ciphertext).toString();
     t.equal(decryption, data, 'Decrypted value should be same as input');
@@ -61,6 +63,8 @@ test('Encrypt/Decrypt large number', function(t){
 
 test('ModuloN', function(t){
     t.plan(1);
+
+    var keypair = phe.generate_paillier_keypair();
     // Check encryption/decryption works for n - 1
     var plaintext1 = keypair.public_key.n.subtract(bn.ONE);
     console.log('The plaintext to encrypt: ');

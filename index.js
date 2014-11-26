@@ -184,7 +184,7 @@ exports.generate_paillier_keypair = function(n_length){
     var keypair = {
         public_key: pubKey,
         private_key: privateKey(phi_n, mu, pubKey),
-        n_length: n_length
+        n_length: keysize
     };
 
 
