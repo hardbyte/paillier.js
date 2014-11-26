@@ -83,8 +83,6 @@ function publicKey(g, n){
     }
 
     pk.raw_encrypt = function(plaintext, r_value){
-        console.log(typeof plaintext);
-
         // if plaintext isn't a bignum convert it...
         // Todo use instanceof as well
         if(typeof plaintext == "string" ){

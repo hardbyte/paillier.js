@@ -16,7 +16,7 @@ function generateRandomNumbers(n){
 var keypairs = [];
 
 test('Generate paillier keypairs', function (t) {
-    var keyLengthsToTest = [64, 128, 256, 512, 1024];
+    var keyLengthsToTest = [128, 256, 512, 1024];
 
     if(!ONLY_FAST) {
         Array.prototype.push.apply(keyLengthsToTest, [2048, 4096]);
@@ -52,14 +52,14 @@ test('Random int encryption/decryption', function (t) {
     });
 });
 
-keypairs.forEach(function(keypair){
-    test('Encrypt/Decrypt large number ' + keypair.n_length+ ' key', function (t) {
-        t.plan(2);
 
+test('Encrypt/Decrypt large number', function (t) {
+    t.plan(2 * keypairs.length);
+    keypairs.forEach(function(keypair){
         var data = "123456789123456789123456789123456789";
-
         var ciphertext = keypair.public_key.raw_encrypt(data);
-        t.notEqual(testCipher.toString(), plaintextString, "Ciphertext should not be equal to the plaintext");
+        // Note this assumes the data integer is representable with the given keypair
+        t.notEqual(ciphertext.toString(), data, "Ciphertext should not be equal to the plaintext");
         var decryption = keypair.private_key.raw_decrypt(ciphertext).toString();
         t.equal(decryption, data, 'Decrypted value should be same as input');
     });
@@ -67,16 +67,24 @@ keypairs.forEach(function(keypair){
 
 
 test('ModuloN', function(t){
-    t.plan(1);
-
-    var keypair = phe.generate_paillier_keypair();
+    t.plan(3);
+    var keypair = keypairs[keypairs.length-1];
 
     // Check encryption/decryption works for n - 1
     var plaintext1 = keypair.public_key.n.subtract(bn.ONE);
     console.log('The plaintext to encrypt: ');
     console.log(plaintext1.toString());
     var ciphertext1 = keypair.public_key.raw_encrypt(plaintext1.toString());
-
     t.equal(plaintext1.toString(), keypair.private_key.raw_decrypt(ciphertext1).toString());
+
+    // Check decryption wraps for n to 0
+    var plaintext2 = keypair.public_key.n;
+    var ciphertext2 = keypair.public_key.raw_encrypt(plaintext2);
+    t.equal('0', keypair.private_key.raw_decrypt(ciphertext2).toString());
+
+    // Check decryption wraps for n + 1 to 1
+    var plaintext3 = keypair.public_key.n.add(bn.ONE);
+    var ciphertext3 = keypair.public_key.raw_encrypt(plaintext3);
+    t.equal('1', keypair.private_key.raw_decrypt(ciphertext3).toString());
 
 });
