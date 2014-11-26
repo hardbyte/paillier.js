@@ -176,13 +176,11 @@ exports.generate_paillier_keypair = function(n_length){
     mu = phi_n.modInverse(n);
 
     var pubKey = publicKey(g, n);
-    var keypair = {
+    return {
         public_key: pubKey,
         private_key: privateKey(phi_n, mu, pubKey),
         n_length: keysize
     };
 
-
-    return keypair;
 };
 

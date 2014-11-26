@@ -11,7 +11,7 @@ Currently relies on jsbn and crypto.
 
 - [ ] Raw encryption of integers
   - [x] Raw encryption of small integers (less than 2^16)
-  - [ ] Deal with encrypting large numbers (see [shortcut](https://github.com/NICTA/python-paillier/blob/master/phe/paillier.py#L129))
+  - [x] Deal with encrypting large numbers (see [shortcut](https://github.com/NICTA/python-paillier/blob/master/phe/paillier.py#L129))
 - [x] Raw decryption of ciphertext strings into integers
 - [ ] Encoded Number
 - [ ] Full test coverage

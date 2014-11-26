@@ -2,7 +2,8 @@ var phe = require('../');
 var test = require('tape');
 var bn = require('jsbn');
 
-var ONLY_FAST = false;
+// We have to finish in ~10 minutes for travis not to give up
+var ONLY_FAST = true;
 
 function generateRandomNumbers(n){
     var results = [];
@@ -15,11 +16,10 @@ function generateRandomNumbers(n){
 var keypairs = [];
 
 test('Generate paillier keypairs', function (t) {
-    var keyLengthsToTest = [64, 128, 256, 512];
+    var keyLengthsToTest = [64, 128, 256, 512, 1024];
 
     if(!ONLY_FAST) {
-        // in the interests of testing speed during development
-        Array.prototype.push.apply(keyLengthsToTest, [1024, 2048, 4096]);
+        Array.prototype.push.apply(keyLengthsToTest, [2048, 4096]);
     }
 
     t.plan(keyLengthsToTest.length);
@@ -29,8 +29,6 @@ test('Generate paillier keypairs', function (t) {
         t.equal(keypair.n_length, keyLength, "keypairs should be correct length");
         keypairs.push(keypair);
 
-        //console.log("Private key:\n" + JSON.stringify(keypair.private_key));
-        //console.log("Public key:\n" + JSON.stringify(keypair.public_key));
         console.log("Keypair serilization test:\n" + JSON.stringify(keypair));
     });
 
@@ -47,24 +45,26 @@ test('Random int encryption/decryption', function (t) {
             var plaintextString = number_to_encrypt.toString();
             console.log("Encrypting with key of length " + keypair.n_length);
             var testCipher = keypair.public_key.raw_encrypt(plaintextString);
-            t.notEqual(testCipher.toString(), plaintextString);
+            t.notEqual(testCipher.toString(), plaintextString, "Ciphertext should not be equal to the plaintext");
             var possiblePlaintext = keypair.private_key.raw_decrypt(testCipher);
             t.equal(possiblePlaintext.intValue(), number_to_encrypt, "Decryption should match original");
         });
     });
 });
 
-if(!ONLY_FAST) {
-    test('Encrypt/Decrypt large number', function (t) {
-        t.plan(1);
+keypairs.forEach(function(keypair){
+    test('Encrypt/Decrypt large number ' + keypair.n_length+ ' key', function (t) {
+        t.plan(2);
+
         var data = "123456789123456789123456789123456789";
 
-        var keypair = phe.generate_paillier_keypair();
         var ciphertext = keypair.public_key.raw_encrypt(data);
+        t.notEqual(testCipher.toString(), plaintextString, "Ciphertext should not be equal to the plaintext");
         var decryption = keypair.private_key.raw_decrypt(ciphertext).toString();
         t.equal(decryption, data, 'Decrypted value should be same as input');
     });
-}
+});
+
 
 test('ModuloN', function(t){
     t.plan(1);
