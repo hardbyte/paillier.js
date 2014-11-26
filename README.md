@@ -5,6 +5,8 @@ A pure javascript implementation of [python-paillier](https://github.com/NICTA/p
 
 Currently relies on jsbn and crypto.
 
+[![Build Status](https://travis-ci.org/hardbyte/paillier.js.svg)](https://travis-ci.org/hardbyte/paillier.js)
+
 ## What is done?
 
 - [ ] Raw encryption of integers
