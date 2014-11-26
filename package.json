@@ -7,11 +7,11 @@
     "test": "tape test/**/*.js | faucet"
   },
   "author": "Brian Thorne",
+  "repository": "https://github.com/hardbyte/paillier.js",
   "license": "GPLv3",
   "dependencies": {
-    "jsbn": "0.0.0"
-  },
-  "devDependencies": {
+    "jsbn": "0.0.0",
+    "tape": "3.0.1",
     "faucet": "0.0.1"
   }
 }
