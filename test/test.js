@@ -31,7 +31,19 @@ test('Generate paillier keypairs', function (t) {
 
         console.log("Keypair serilization test:\n" + JSON.stringify(keypair));
     });
+});
 
+test("Create Public Key from string", function(t) {
+    t.plan(1);
+    var publicKey = phe.publicKey("6497955158", "126869");
+    t.ok(publicKey);
+});
+
+test("Create Private Key from string", function(t) {
+    t.plan(1);
+    var publicKey = phe.publicKey("6497955158", "126869");
+    var privateKey = phe.privateKey("31536", "53022", publicKey);
+    t.ok(privateKey);
 });
 
 test('Random int encryption/decryption', function (t) {
@@ -87,4 +99,16 @@ test('ModuloN', function(t){
     var ciphertext3 = keypair.public_key.raw_encrypt(plaintext3);
     t.equal('1', keypair.private_key.raw_decrypt(ciphertext3).toString());
 
+});
+
+
+test('Raw Encrypt Decrypt Regression 0', function(t){
+    t.plan(2);
+
+    var publicKey = phe.publicKey("6497955158", "126869");
+    var privateKey = phe.privateKey("31536", "53022", publicKey);
+    var ciphertext = publicKey.raw_encrypt(10100, 74384);
+    t.equal("848742150", ciphertext.toString());
+    var decryption = privateKey.raw_decrypt("848742150");
+    t.equal(decryption.toString(), "10100");
 });
