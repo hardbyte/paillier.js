@@ -28,10 +28,29 @@ function SecureRandom(){
 
 var rng = SecureRandom();
 
+function convertToBN(input){
+    // Todo use instanceof as well?
 
-// Library
+    if(typeof input == "number"){
+        console.log('WARNING: you are using javascript numbers for cryptography');
+        input = input.toString();
+    }
 
-function privateKey(lambda, mu, public_key){
+    if(typeof input == "string" ){
+        //console.log("Converting input string to bignumber");
+        input = new bn(input, 10);
+        //console.log(input.toString());
+    }
+
+
+    return input;
+}
+
+exports.privateKey = function(lambda, mu, public_key){
+
+    lambda = convertToBN(lambda);
+    mu = convertToBN(mu);
+
     var data = {
         lambda: lambda,
         mu: mu,
@@ -48,13 +67,7 @@ function privateKey(lambda, mu, public_key){
 
     data.raw_decrypt = function(ciphertext){
         // if plaintext isn't a bignum convert it...
-        // Todo use instanceof as well
-        if(typeof ciphertext == "string" ){
-            console.log("Converting input string to bignumber");
-            ciphertext = new bn(ciphertext, 10);
-            console.log(ciphertext.toString());
-        }
-
+        ciphertext = convertToBN(ciphertext);
 
         // TODO define output type string/Uint8Array/Buffer?
         var u = ciphertext.modPow(data.lambda, data.public_key.nsquare);
@@ -62,9 +75,11 @@ function privateKey(lambda, mu, public_key){
         return l_of_u.multiply(data.mu).mod(data.public_key.n);
     };
     return data;
-}
+};
 
-function publicKey(g, n){
+exports.publicKey = function(g, n){
+    g = convertToBN(g);
+    n = convertToBN(n);
 
     var pk = {
         g: g,
@@ -84,12 +99,8 @@ function publicKey(g, n){
 
     pk.raw_encrypt = function(plaintext, r_value){
         // if plaintext isn't a bignum convert it...
-        // Todo use instanceof as well
-        if(typeof plaintext == "string" ){
-            console.log("Converting input string to bignumber");
-            plaintext = new bn(plaintext, 10);
-            console.log(plaintext.toString());
-        }
+        plaintext = convertToBN(plaintext);
+        r_value = convertToBN(r_value);
 
         var nude_ciphertext;
         if( (pk.n.subtract(pk.max_int).compareTo(plaintext) <= 0) && (plaintext < pk.n)){
@@ -118,7 +129,7 @@ function publicKey(g, n){
     };
 
     return pk;
-}
+};
 
 
 function getNBitRand(n){
@@ -173,10 +184,10 @@ exports.generate_paillier_keypair = function(n_length){
     phi_n = p.subtract(bn.ONE).multiply(q.subtract(bn.ONE));
     mu = phi_n.modInverse(n);
 
-    var pubKey = publicKey(g, n);
+    var pubKey = exports.publicKey(g, n);
     return {
         public_key: pubKey,
-        private_key: privateKey(phi_n, mu, pubKey),
+        private_key: exports.privateKey(phi_n, mu, pubKey),
         n_length: keysize
     };
 
