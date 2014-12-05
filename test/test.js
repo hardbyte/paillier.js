@@ -112,3 +112,10 @@ test('Raw Encrypt Decrypt Regression 0', function(t){
     var decryption = privateKey.raw_decrypt("848742150");
     t.equal(decryption.toString(), "10100");
 });
+
+test('Encrypt Regression', function(t){
+    t.plan(1);
+    var publicKey = phe.publicKey("6497955158", "126869");
+    var enc_num = publicKey.encrypt("10100", "74384");
+    t.equal("848742150", enc_num.ciphertext(false).toString());
+});
