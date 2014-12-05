@@ -9,6 +9,7 @@ Currently relies on jsbn and crypto.
 
 ## What is done?
 
+- [x] Generate paillier keypairs
 - [ ] Raw encryption of integers
   - [x] Raw encryption of small integers (less than 2^16)
   - [x] Deal with encrypting large numbers (see [shortcut](https://github.com/NICTA/python-paillier/blob/master/phe/paillier.py#L129))
