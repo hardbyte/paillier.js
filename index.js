@@ -1,6 +1,16 @@
 /**
  * Raw Paillier Cryptoscheme
  * @module paillier
+ * @fileOverview A Paillier Cryptoscheme implementation compatible with Python-Paillier.
+ * @version 0.1
+ * @author Brian Thorne <brian.thorne@nicta.com.au>
+ *
+ * @example
+ *
+ * paillier = require("paillier");
+ * // Create a new Paillier keypair
+ * var keypair = paillier.generate_paillier_keypair();
+ * keypair.public_key.encrypt("1")
  */
 
 var bn = require('jsbn');
@@ -8,6 +18,7 @@ var crypto = require('crypto');
 
 /**
  * Random number generator using node's crypto.rng
+ * @private
  */
 function SecureRandom(){
     return {
@@ -26,7 +37,6 @@ function SecureRandom(){
         }
     };
 }
-
 var rng = SecureRandom();
 
 /**
@@ -37,7 +47,6 @@ var rng = SecureRandom();
 
 /**
  * Convert a {@link NumberLike} into a {@link external:BigInteger}.
- * @function convertToBN
  * @private
  * @param {NumberLike} input - The value to be converted into a BigInteger instance.
  * @returns {BigInteger}
@@ -62,10 +71,14 @@ function convertToBN(input){
 
 /**
  * Create a Private Key.
- * @function privateKey
+ *
+ * @namespace PrivateKey
+ * @constructs PrivateKey
+ *
  * @param {NumberLike} lambda - part of the public key - see Paillier's paper.
  * @param {NumberLike} mu - part of the public key - see Paillier's paper.
  * @param {PublicKey} public_key - The corresponding public key.
+ *
  * @returns {PrivateKey}
  * */
 exports.privateKey = function(lambda, mu, public_key){
@@ -73,6 +86,9 @@ exports.privateKey = function(lambda, mu, public_key){
     lambda = convertToBN(lambda);
     mu = convertToBN(mu);
 
+    /**
+     * @lends PrivateKey#
+     */
     var data = {
         lambda: lambda,
         mu: mu,
@@ -100,38 +116,34 @@ exports.privateKey = function(lambda, mu, public_key){
     return data;
 };
 
-///**
-//* A Paillier.PublicKey
-//* @typedef PublicKey
-//* @property {BigInteger} g
-//* @property {BigInteger} n
-//* @property {BigInteger} nsquare
-//* @property {BigInteger} max_int - The maximum raw integer value that can be encrypted with this public key.
-//* @property {function} raw_encrypt
-//*/
-
-
 /**
- * Create a Public Key
+ * Create a Public Key.
  *
  * @example
  * var publicKey = phe.publicKey("6497955158", "126869");
  *
+ * @namespace PublicKey
  * @constructs PublicKey
+ *
  * @param {NumberLike} g
  * @param {NumberLike} n
+ *
  * @returns {PublicKey}
  */
 exports.publicKey = function(g, n){
     g = convertToBN(g);
     n = convertToBN(n);
 
-
-    ///** @namespace PublicKey */
+    /**
+     * @lends PublicKey#
+     */
     var pk = {
-        g: g,
+        /** @property {BigInteger} g */
+        g:  g,
+        /** @property {BigInteger} n */
         n: n,
         nsquare: n.multiply(n),
+        /** @property {BigInteger} max_int - The largest number that can be encrypted with this public key. */
         max_int: n.divide(new bn("3", 10)).subtract(bn.ONE)
     };
 
@@ -150,11 +162,8 @@ exports.publicKey = function(g, n){
      * You probably want to use {@link encrypt} instead, because
      * it handles signed integers as well as floats.
      *
-     * @memberof PublicKey
-     * @name raw_encrypt
-     * @function raw_encrypt
-     * @param {NumberLike} plaintext
-     * @param {NumberLike} [r_value]
+     * @param {NumberLike} plaintext - a positive integer. Typically an encoding of the actual value.
+     * @param {NumberLike} [r_value] - obfuscator for the ciphertext. By default a random value is used.
      * @returns {BigInteger} ciphertext
      */
     pk.raw_encrypt = function(plaintext, r_value){
@@ -183,19 +192,24 @@ exports.publicKey = function(g, n){
     /**
      * Encode and encrypt a signed int or float value.
      *
-     * @memberof PublicKey
-     * @function encrypt
-     * @name encrypt
-     * @TODO finish me
+     * @param {number|float} value - an int or float to be encrypted.
+     *      If int, it must satisfy abs(value) < n/3
+     *      If float, it must satisfy abs(value/precision) << n/3
+     * @param {float} precision - Passed to {@link EncodedNumber.encode}.
+     *
+     * @returns {EncryptedNumber} The encrypted number instance
+     *
+     * @TODO finish documenting and implementing me
      */
     pk.encrypt = function(value, precision, r_value){
-
+        var encoding = exports.EncodedNumber.encode(this, value, precision);
     };
 
     /**
      * Create a json serialization
      * @function
-     * @returns {{g: (string|*), n: (string|*)}}
+     * @returns {string} The JSON representation of the Public Key. Comprises
+     *      g and n attributes.
      */
     pk.toJSON = function(){
 
@@ -208,12 +222,6 @@ exports.publicKey = function(g, n){
     return pk;
 };
 
-
-function getNBitRand(n){
-    return new bn(n, 1, rng);
-}
-
-
 /**
  * Return a random N-bit prime number using the System's best
  * Cryptographic random source.
@@ -221,12 +229,18 @@ function getNBitRand(n){
  * @param {NumberLike} bitLength - n-bit prime number
  */
 function getprimeover(bitLength){
+
+    function getNBitRand(n){
+        return new bn(n, 1, rng);
+    }
+
     var p = bn.ZERO;
     while(!p.isProbablePrime(20)){
         p = getNBitRand(bitLength);
     }
     return p;
 }
+
 
 
 /**
@@ -282,3 +296,102 @@ exports.generate_paillier_keypair = function(n_length){
 
 };
 
+/**
+ * Represents a float or int encoded for Paillier encryption.
+ *
+ * For end users, this class is mainly useful for specifying precision
+ * when adding/multiplying an {@link EncryptedNumber} by a scalar.
+ *
+ * @namespace EncodedNumber
+ * @constructs EncodedNumber
+ *
+ * @param {PublicKey} public_key - public key for which to encode (this is necessary because max_int varies)
+ * @param {BigInteger} encoding - The encoded number to store. Must be positive and less than max_int
+ * @param {number} exponent - Together with the fixed BASE, determines the level of fixed-precision used
+ *      in encoding the number.
+ *
+ * @returns {EncodedNumber}
+ */
+exports.EncodedNumber = function(public_key, encoding, exponent){
+
+    /**
+     * Base to use when exponentiating. Larger `BASE` means
+     * that exponent leaks less information. If you vary this,
+     * you'll have to manually inform anyone decoding your numbers.
+     */
+    var BASE = 16;
+
+
+    /**
+     * Class method/constructor for EncodedNumber
+     *
+     * @param {PublicKey} public_key
+     * @param {number} scalar
+     * @param {float} precision
+     * @param {number} max_exponent
+     *
+     * @returns {EncodedNumber}
+     */
+    function encode(){
+
+    }
+
+
+    // TODO https://github.com/NICTA/python-paillier/blob/master/phe/paillier.py#L428
+
+
+};
+
+/**
+ * Represents the Paillier encryption of a float or int.
+ * Typically, an `EncryptedNumber` is created by {@link PublicKey.encrypt}.
+ * You would only instantiate an EncryptedNumber manually if you are de-serializing
+ * a number someone else encrypted.
+ *
+ * @namespace EncryptedNumber
+ * @constructs EncryptedNumber
+ *
+ * @param {PublicKey} public_key - The PublicKey against which the number was encrypted.
+ * @param {BigInteger} ciphertext - Encrypted representation of the encoded number.
+ * @param {number} [exponent=0] - Used by {@link EncodedNumber} to keep track of fixed precision - usually negative.
+ *
+ * @returns {EncryptedNumber}
+ */
+exports.EncryptedNumber = function(public_key, ciphertext, exponent){
+
+    /** @lends EncryptedNumber */
+    var ns = {
+        /**
+         * Get the raw ciphertext underlying this EncryptedNumber
+         *
+         * Choosing a random number is slow. Therefore, methods like
+         * add and multiply take a shortcut and do not
+         * follow Paillier encryption fully - every encrypted sum or
+         * product should be multiplied by r ^ PublicKey.n for random r < n (i.e., the result
+         * is obfuscated). Not obfuscating provides a big speed up in,
+         * e.g., an encrypted dot product: each of the product terms need
+         * not be obfuscated, since only the final sum is shared with
+         * others - only this final sum needs to be obfuscated.
+         * Not obfuscating is OK for internal use, where you are happy for
+         * your own computer to know the scalars you've been adding and
+         * multiplying to the original ciphertext. But this is *not* OK if
+         * you're going to be sharing the new ciphertext with anyone else.
+         * So, by default, this method returns an obfuscated ciphertext -
+         * obfuscating it if necessary. If instead you set be_secure=False
+         * then the ciphertext will be returned, regardless of whether it
+         * has already been obfuscated. We thought that this approach,
+         * while a little awkward, yields a safe default while preserving
+         * the option for high performance.
+         *
+         * @param {boolean} [be_secure=true] If any untrusted party will see the returned ciphertext, then this
+         *      should be true.
+         * @returns {BigInteger} The ciphertext. WARNING, if be_secure is false then it could be possible
+         *      for an attacker to deduce numbers involved in calculating this ciphertext.
+         */
+        ciphertext: function(be_secure){
+            return "TODO";
+        }
+    };
+
+    return ns;
+};
