@@ -113,24 +113,26 @@ test('Raw Encrypt Decrypt Regression 0', function(t){
     t.equal(decryption.toString(), "10100");
 });
 
-test('Encrypt Regression', function(t){
-    t.plan(1);
-    var publicKey = phe.publicKey("6497955158", "126869");
-    var enc_num = publicKey.encrypt("10100", "74384");
-    t.equal("848742150", enc_num.ciphertext(false).toString());
-});
 
-test('Encrypt is Random', function(t){
-    t.plan(XX);
-
-    var publicKey = phe.publicKey("6497955158", "126869");
-    var enc_num = publicKey.encrypt("1", "1");
-    t.equal("6497955158", enc_num.ciphertext(false).toString());
-
-    // r-value should be random
-    var enc_num2 = publicKey.encrypt("1");
-    var enc_num3 = publicKey.encrypt("1");
-
-    t.notEqual("6497955158", enc_num2.ciphertext(false).toString());
-    t.notEqual(enc_num2.ciphertext(false).toString(), enc_num3.ciphertext(false).toString());
-});
+// WIP
+//test('Encrypt Regression', function(t){
+//    t.plan(1);
+//    var publicKey = phe.publicKey("6497955158", "126869");
+//    var enc_num = publicKey.encrypt("10100", "74384");
+//    t.equal("848742150", enc_num.ciphertext(false).toString());
+//});
+//
+//test('Encrypt is Random', function(t){
+//    t.plan(XX);
+//
+//    var publicKey = phe.publicKey("6497955158", "126869");
+//    var enc_num = publicKey.encrypt("1", "1");
+//    t.equal("6497955158", enc_num.ciphertext(false).toString());
+//
+//    // r-value should be random
+//    var enc_num2 = publicKey.encrypt("1");
+//    var enc_num3 = publicKey.encrypt("1");
+//
+//    t.notEqual("6497955158", enc_num2.ciphertext(false).toString());
+//    t.notEqual(enc_num2.ciphertext(false).toString(), enc_num3.ciphertext(false).toString());
+//});
