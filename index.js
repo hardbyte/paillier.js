@@ -1,12 +1,13 @@
 /**
  * Raw Paillier Cryptoscheme
+ * @module paillier
  */
 
 var bn = require('jsbn');
 var crypto = require('crypto');
 
-/* Random numbers
- *
+/**
+ * Random number generator using node's crypto.rng
  */
 function SecureRandom(){
     return {
@@ -28,6 +29,19 @@ function SecureRandom(){
 
 var rng = SecureRandom();
 
+/**
+ * A number or string containing a number. Essentially something that can be parsed into a
+ * BigInteger type.
+ * @typedef {(number|string|BigInteger)} NumberLike
+ * */
+
+/**
+ * Convert a {@link NumberLike} into a {@link external:BigInteger}.
+ * @function convertToBN
+ * @private
+ * @param {NumberLike} input - The value to be converted into a BigInteger instance.
+ * @returns {BigInteger}
+ */
 function convertToBN(input){
     // Todo use instanceof as well?
 
@@ -37,7 +51,7 @@ function convertToBN(input){
     }
 
     if(typeof input == "string" ){
-        //console.log("Converting input string to bignumber");
+        //console.log("Converting input string to BigInteger");
         input = new bn(input, 10);
         //console.log(input.toString());
     }
@@ -46,6 +60,14 @@ function convertToBN(input){
     return input;
 }
 
+/**
+ * Create a Private Key.
+ * @function privateKey
+ * @param {NumberLike} lambda - part of the public key - see Paillier's paper.
+ * @param {NumberLike} mu - part of the public key - see Paillier's paper.
+ * @param {PublicKey} public_key - The corresponding public key.
+ * @returns {PrivateKey}
+ * */
 exports.privateKey = function(lambda, mu, public_key){
 
     lambda = convertToBN(lambda);
@@ -58,7 +80,7 @@ exports.privateKey = function(lambda, mu, public_key){
     };
 
     data.toJSON = function(){
-        // Override JSON routine to convert the bignumbers into strings
+        // Override JSON routine to convert the BigIntegers into strings
         return {
             lambda: this.lambda.toString(),
             mu: this.mu.toString()
@@ -74,13 +96,38 @@ exports.privateKey = function(lambda, mu, public_key){
         var l_of_u = u.subtract(bn.ONE).divide(data.public_key.n);
         return l_of_u.multiply(data.mu).mod(data.public_key.n);
     };
+
     return data;
 };
 
+///**
+//* A Paillier.PublicKey
+//* @typedef PublicKey
+//* @property {BigInteger} g
+//* @property {BigInteger} n
+//* @property {BigInteger} nsquare
+//* @property {BigInteger} max_int - The maximum raw integer value that can be encrypted with this public key.
+//* @property {function} raw_encrypt
+//*/
+
+
+/**
+ * Create a Public Key
+ *
+ * @example
+ * var publicKey = phe.publicKey("6497955158", "126869");
+ *
+ * @constructs PublicKey
+ * @param {NumberLike} g
+ * @param {NumberLike} n
+ * @returns {PublicKey}
+ */
 exports.publicKey = function(g, n){
     g = convertToBN(g);
     n = convertToBN(n);
 
+
+    ///** @namespace PublicKey */
     var pk = {
         g: g,
         n: n,
@@ -97,6 +144,19 @@ exports.publicKey = function(g, n){
         return r;
     }
 
+    /**
+     * Raw paillier encryption of a positive integer plaintext.
+     *
+     * You probably want to use {@link encrypt} instead, because
+     * it handles signed integers as well as floats.
+     *
+     * @memberof PublicKey
+     * @name raw_encrypt
+     * @function raw_encrypt
+     * @param {NumberLike} plaintext
+     * @param {NumberLike} [r_value]
+     * @returns {BigInteger} ciphertext
+     */
     pk.raw_encrypt = function(plaintext, r_value){
         // if plaintext isn't a bignum convert it...
         plaintext = convertToBN(plaintext);
@@ -120,8 +180,25 @@ exports.publicKey = function(g, n){
         return nude_ciphertext.multiply(obfuscator).mod(pk.nsquare);
     };
 
+    /**
+     * Encode and encrypt a signed int or float value.
+     *
+     * @memberof PublicKey
+     * @function encrypt
+     * @name encrypt
+     * @TODO finish me
+     */
+    pk.encrypt = function(value, precision, r_value){
+
+    };
+
+    /**
+     * Create a json serialization
+     * @function
+     * @returns {{g: (string|*), n: (string|*)}}
+     */
     pk.toJSON = function(){
-        // create a json serialization
+
         return {
             g: this.g.toString(),
             n: this.n.toString()
@@ -140,7 +217,8 @@ function getNBitRand(n){
 /**
  * Return a random N-bit prime number using the System's best
  * Cryptographic random source.
- * @param n-bit prime number
+ * @private
+ * @param {NumberLike} bitLength - n-bit prime number
  */
 function getprimeover(bitLength){
     var p = bn.ZERO;
@@ -152,12 +230,15 @@ function getprimeover(bitLength){
 
 
 /**
-  param n_length: key size in bits.
-  Returns The public and private key.
-  {
-    public_key: {n: "LARGENUMBER", g: "LARGENUMBER"},
-    private_key: {lambda: "LARGENUMBER", mu: "LARGENUMBER"}
-  }
+ * Generate a Paillier KeyPair of given strength.
+ *
+ * @param {NumberLike} [n_length=1024] - key size in bits
+ *
+ * @example
+ * // Create a default keypair public, private:
+ * var keypair = paillier.generate_paillier_keypair();
+ *
+ * @returns {KeyPair} KeyPair
  */
 exports.generate_paillier_keypair = function(n_length){
     var keysize;
@@ -185,6 +266,14 @@ exports.generate_paillier_keypair = function(n_length){
     mu = phi_n.modInverse(n);
 
     var pubKey = exports.publicKey(g, n);
+
+    /**
+     * A KeyPair
+     * @typedef KeyPair
+     * @property {PublicKey} public_key
+     * @property {PrivateKey} private_key
+     * @property {number} n_length - The key length in bits
+     * */
     return {
         public_key: pubKey,
         private_key: exports.privateKey(phi_n, mu, pubKey),
