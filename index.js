@@ -297,26 +297,8 @@ exports.generate_paillier_keypair = function(n_length){
 
 };
 
-/**
- * Represents a float or int encoded for Paillier encryption.
- *
- * For end users, this class is mainly useful for specifying precision
- * when adding/multiplying an {@link EncryptedNumber} by a scalar.
- *
- * If you want to manually encode a number for Paillier encryption,
- * then use encode, if de-serializing then use this constructor.
- *
- * @namespace EncodedNumber
- * @constructs EncodedNumber
- *
- * @param {PublicKey} public_key - public key for which to encode (this is necessary because max_int varies)
- * @param {BigInteger} encoding - The encoded number to store. Must be positive and less than max_int
- * @param {number} exponent - Together with the fixed BASE, determines the level of fixed-precision used
- *      in encoding the number.
- *
- * @returns {EncodedNumber}
- */
-exports.EncodedNumber = function(public_key, encoding, exponent){
+
+exports.EncodedNumber = (function(){
 
     /**
      * Base to use when exponentiating. Larger `BASE` means
@@ -329,6 +311,9 @@ exports.EncodedNumber = function(public_key, encoding, exponent){
     var log = function(x, base){return Math.log(x)/Math.log(base);};
 
     var LOG2_BASE = log(16, 2);
+
+    // Save a reference to the base as a BigInteger
+    var BASE_BN = new bn(BASE.toString(), 10);
 
     // http://blog.chewxy.com/2014/02/24/what-every-javascript-developer-should-know-about-floating-point-numbers/
     var FLOAT_MANTISSA_BITS = 53;
@@ -349,6 +334,93 @@ exports.EncodedNumber = function(public_key, encoding, exponent){
         // mantissa = this.ldexp(value, -exponent)  // not needed
         return exponent;
     };
+
+
+    /**
+     * Represents a float or int encoded for Paillier encryption.
+     *
+     * For end users, this class is mainly useful for specifying precision
+     * when adding/multiplying an {@link EncryptedNumber} by a scalar.
+     *
+     * If you want to manually encode a number for Paillier encryption,
+     * then use encode, if de-serializing then use this constructor.
+     *
+     * @namespace EncodedNumber
+     * @constructs EncodedNumber
+     *
+     * @param {PublicKey} public_key - public key for which to encode (this is necessary because max_int varies)
+     * @param {BigInteger} encoding - The encoded number to store. Must be positive and less than max_int
+     * @param {number} exponent - Together with the fixed BASE, determines the level of fixed-precision used
+     *      in encoding the number.
+     *
+     * @returns {EncodedNumber}
+     */
+    var encodedNumberConstructor = function(public_key, encoding, exponent){
+        var en = {
+            public_key: public_key,
+            encoding: convertToBN(encoding),
+            exponent: exponent
+        };
+
+        /**
+         * Decode plaintext and return result
+         * @function
+         * @returns {Number}
+         * */
+        en.decode = function(){
+            var mantissa;
+            if(en.encoding.compareTo(en.public_key.n) >= 0){
+                throw "Attempted to decode corrupted number"
+            }
+
+            if(en.encoding.compareTo(en.public_key.max_int) <= 0){
+                // Positive
+                mantissa = en.encoding;
+            } else {
+
+                console.log(en.encoding.compareTo(en.public_key.n.subtract(en.public_key.max_int)) > 0);
+                if (en.encoding >= (en.public_key.n.subtract(en.public_key.max_int))) {
+                    // negative
+                    mantissa = en.encoding.subtract(en.public_key.n);
+                } else {
+                    throw "OverflowError"
+                }
+            }
+            return parseFloat(mantissa.multiply(BASE_BN.pow(en.exponent)).toString());
+
+        };
+
+        /**
+         * Return an EncodedNumber with the same value
+         * but a lower exponent.
+         *
+         * We can multiple the encoded value by BASE
+         * and decrement the exponent by one without changing the
+         * value. Thus we can arbitrarily ratchet down the exponent
+         * of an EncodedNumber. We only run into trouble when the
+         * encoded integer overflows - which we may not be able to
+         * detect and warn about.
+         *
+         * This is necessary when adding EncodedNumbers, and can
+         * be useful to hide information about the precision of
+         * numbers - e.g. a protocol can fix the exponent of all
+         * transmitted EncodedNumbers to some lower bound.
+         *
+         * @param {number} new_exp - The desired exponent
+         * @returns {EncodedNumber} Instance with same value but desired exponent
+         * @throws ValueError when trying to increase the exponent.
+         */
+        en.decrease_exponent_to = function(new_exp){
+            if(new_exp > en.exponent){
+                throw "New Exponent should be more negative that old exponent"
+            }
+            var factor = Math.pow(BASE, en.exponent - new_exp);
+            var new_enc = en.encoding * factor
+        };
+
+        return en;
+    };
+
 
     /**
      * Class method/constructor for EncodedNumber
@@ -379,8 +451,9 @@ exports.EncodedNumber = function(public_key, encoding, exponent){
      *
      * @returns {EncodedNumber}
      */
-    function encode(public_key, scalar, precision, max_exponent){
+    encodedNumberConstructor.encode = function(public_key, scalar, precision, max_exponent){
         var prec_exponent;
+
         // Calculate the maximum exponent for desired precision
         if(typeof precision === "undefined"){
             var isInt = function(x){return parseInt(x) === x;};
@@ -416,21 +489,24 @@ exports.EncodedNumber = function(public_key, encoding, exponent){
             exponent = Math.min(max_exponent, prec_exponent);
         }
 
-        var int_rep = Math.round(scalar * Math.pow(BASE, -exponent));
-        if(Math.abs(int_rep) > public_key.max_int){
+        // NOTE: Large javascript integers are floats...
+        var int_rep = new bn(
+            //Math.round
+            (
+                scalar * Math.pow(BASE, -exponent)
+            ).toString(BASE), BASE);
+        if(int_rep.compareTo(public_key.max_int) >= 0){
+            console.log('Integer is too large?');
+            console.log(int_rep.toString());
             throw "Integer needs to be within +/- " + public_key.max_int;
         }
 
         // Wrap negative numbers by adding n
-        return EncodedNumber(public_key, int_rep % public_key.n, exponent);
-    }
-
-    return {
-        public_key: public_key,
-        encoding: encoding,
-        exponent: exponent
+        return encodedNumberConstructor(public_key, int_rep % public_key.n, exponent);
     };
-};
+
+    return encodedNumberConstructor;
+})();
 
 /**
  * Represents the Paillier encryption of a float or int.
