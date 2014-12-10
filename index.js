@@ -180,7 +180,7 @@ exports.publicKey = function(g, n){
             nude_ciphertext = pk.g.modPow(plaintext, pk.nsquare);
         }
 
-        if(r_value == undefined){
+        if(typeof r_value === "undefined"){
             r_value = get_random_lt_n();
         }
 
@@ -196,6 +196,7 @@ exports.publicKey = function(g, n){
      *      If int, it must satisfy abs(value) < n/3
      *      If float, it must satisfy abs(value/precision) << n/3
      * @param {float} precision - Passed to {@link EncodedNumber.encode}.
+     * @param {?} [r_value] -
      *
      * @returns {EncryptedNumber} The encrypted number instance
      *
@@ -256,7 +257,7 @@ function getprimeover(bitLength){
  */
 exports.generate_paillier_keypair = function(n_length){
     var keysize;
-    if(n_length == undefined){
+    if(typeof n_length === "undefined"){
         keysize = 1024;
         console.log("Using default key size of " + keysize + " bits");
     } else {
@@ -302,6 +303,9 @@ exports.generate_paillier_keypair = function(n_length){
  * For end users, this class is mainly useful for specifying precision
  * when adding/multiplying an {@link EncryptedNumber} by a scalar.
  *
+ * If you want to manually encode a number for Paillier encryption,
+ * then use encode, if de-serializing then use this constructor.
+ *
  * @namespace EncodedNumber
  * @constructs EncodedNumber
  *
@@ -321,25 +325,111 @@ exports.EncodedNumber = function(public_key, encoding, exponent){
      */
     var BASE = 16;
 
+    /** Compute the logarithm of x with given base */
+    var log = function(x, base){return Math.log(x)/Math.log(base);};
+
+    var LOG2_BASE = log(16, 2);
+
+    // http://blog.chewxy.com/2014/02/24/what-every-javascript-developer-should-know-about-floating-point-numbers/
+    var FLOAT_MANTISSA_BITS = 53;
+
+    var frexp_exponent = function(value) {
+        // frexp separates a float into its mantissa and exponent
+        if (value == 0.0) return 0;     // zero is special
+        var data = new DataView(new ArrayBuffer(8));
+        data.setFloat64(0, value);      // for accessing IEEE-754 exponent bits
+        var bits = (data.getUint32(0) >>> 20) & 0x7FF;
+        if (bits === 0) { // we have a subnormal float (actual zero was handled above)
+            // make it normal by multiplying a large number
+            data.setFloat64(0, value * Math.pow(2, 64));
+            // access its exponent bits, and subtract the large number's exponent
+            bits = ((data.getUint32(0) >>> 20) & 0x7FF) - 64;
+        }
+        var exponent = bits - 1022;                 // apply bias
+        // mantissa = this.ldexp(value, -exponent)  // not needed
+        return exponent;
+    };
 
     /**
      * Class method/constructor for EncodedNumber
      *
+     * This encoding is carefully chosen so that it supports the same
+     * operations as the Paillier cryptosystem.
+     *
+     * If *scalar* is a float, first approximate it as an int, int_rep:
+     *     scalar = int_rep * (BASE ** exponent),
+     * for some (typically negative) integer exponent, which can be
+     * tuned using *precision* and *max_exponent*. Specifically,
+     * exponent is chosen to be equal to or less than *max_exponent*,
+     * and such that the number *precision* is not rounded to zero.
+     *
+     * Having found an integer representation for the float (or having
+     * been given an int scalar), we then represent this integer as
+     * a non-negative integer < PaillierPublicKey.n
+     *
+     * Paillier homomorphic arithemetic works modulo n. We take the
+     * convention that a number x < n/3 is positive, and that a
+     * number x > 2n/3 is negative. The range n/3 < x < 2n/3 allows
+     * for overflow detection.
+     *
      * @param {PublicKey} public_key
      * @param {number} scalar
-     * @param {float} precision
-     * @param {number} max_exponent
+     * @param {float} [precision]
+     * @param {number} [max_exponent]
      *
      * @returns {EncodedNumber}
      */
-    function encode(){
+    function encode(public_key, scalar, precision, max_exponent){
+        var prec_exponent;
+        // Calculate the maximum exponent for desired precision
+        if(typeof precision === "undefined"){
+            var isInt = function(x){return parseInt(x) === x;};
+            var isFloat = function(n){return n === +n && n !== (n|0);};
 
+            if(isInt(scalar)){
+                prec_exponent = 0;
+            }
+
+            if(isFloat(scalar)){
+                // Encode with *at least* as much precision as the javascript float
+                // What's the base-2 exponent on the float?
+                var bin_flt_exponent = frexp_exponent(scalar);
+
+                // What's the base-2 exponent of the least significant bit?
+                // The least significant bit has value 2 ** bin_lsb_exponent
+                bin_lsb_exponent = bin_flt_exponent - FLOAT_MANTISSA_BITS;
+
+                // What's the corresponding base BASE exponent? Round that down.
+                prec_exponent = Math.floor(bin_lsb_exponent / LOG2_BASE);
+            }
+        } else {
+            prec_exponent = Math.floor(log(precision, BASE));
+        }
+        /* Remember exponents are negative for numbers < 1.
+         * If we're going to store numbers with a more negative
+         * exponent than demanded by the precision, then we may
+         * as well bump up the actual precision.
+         **/
+        if(typeof max_exponent === "undefined"){
+            exponent = prec_exponent;
+        } else {
+            exponent = Math.min(max_exponent, prec_exponent);
+        }
+
+        var int_rep = Math.round(scalar * Math.pow(BASE, -exponent));
+        if(Math.abs(int_rep) > public_key.max_int){
+            throw "Integer needs to be within +/- " + public_key.max_int;
+        }
+
+        // Wrap negative numbers by adding n
+        return EncodedNumber(public_key, int_rep % public_key.n, exponent);
     }
 
-
-    // TODO https://github.com/NICTA/python-paillier/blob/master/phe/paillier.py#L428
-
-
+    return {
+        public_key: public_key,
+        encoding: encoding,
+        exponent: exponent
+    };
 };
 
 /**
