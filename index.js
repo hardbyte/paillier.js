@@ -359,8 +359,9 @@ exports.EncodedNumber = (function(){
         var en = {
             public_key: public_key,
             encoding: convertToBN(encoding),
-            exponent: exponent
+            exponent: convertToBN(exponent)
         };
+
 
         /**
          * Decode plaintext and return result
@@ -377,16 +378,17 @@ exports.EncodedNumber = (function(){
                 // Positive
                 mantissa = en.encoding;
             } else {
-
-                console.log(en.encoding.compareTo(en.public_key.n.subtract(en.public_key.max_int)) > 0);
-                if (en.encoding >= (en.public_key.n.subtract(en.public_key.max_int))) {
+                if (en.encoding.compareTo(en.public_key.n.subtract(en.public_key.max_int)) >= 0) {
                     // negative
                     mantissa = en.encoding.subtract(en.public_key.n);
                 } else {
                     throw "OverflowError"
                 }
             }
-            return parseFloat(mantissa.multiply(BASE_BN.pow(en.exponent)).toString());
+
+            // TODO adapt for Floating Point...
+            var decodedBN = mantissa.multiply(BASE_BN.pow(en.exponent));
+            return parseInt(decodedBN.toString(16), 16);
 
         };
 
@@ -452,16 +454,12 @@ exports.EncodedNumber = (function(){
      * @returns {EncodedNumber}
      */
     encodedNumberConstructor.encode = function(public_key, scalar, precision, max_exponent){
-        var prec_exponent;
+        var exponent, prec_exponent = 0;
+        var scalarIsFloat = false;
 
         // Calculate the maximum exponent for desired precision
         if(typeof precision === "undefined"){
-            var isInt = function(x){return parseInt(x) === x;};
             var isFloat = function(n){return n === +n && n !== (n|0);};
-
-            if(isInt(scalar)){
-                prec_exponent = 0;
-            }
 
             if(isFloat(scalar)){
                 // Encode with *at least* as much precision as the javascript float
@@ -474,11 +472,14 @@ exports.EncodedNumber = (function(){
 
                 // What's the corresponding base BASE exponent? Round that down.
                 prec_exponent = Math.floor(bin_lsb_exponent / LOG2_BASE);
+                scalarIsFloat = true;
             }
         } else {
             prec_exponent = Math.floor(log(precision, BASE));
         }
-        /* Remember exponents are negative for numbers < 1.
+
+        /* Remember exponents are negative for numbers < 1, but
+         * positive for positive integers (and floats).
          * If we're going to store numbers with a more negative
          * exponent than demanded by the precision, then we may
          * as well bump up the actual precision.
@@ -489,20 +490,39 @@ exports.EncodedNumber = (function(){
             exponent = Math.min(max_exponent, prec_exponent);
         }
 
+        // Base ^ (-exponent) is often a tiny fraction so can't be
+        // represented using the Big Integer library
+        // exponent MUST be an integer though
+        var multiplicand = Math.pow(BASE, -exponent);
+
+        // TODO sort this out to deal with floats, strings and javascript numbers
+        //if(!scalarIsFloat){
+            // Use integer math
+        //    var scalarStr = (new bn(scalar.toString(10), 10)).multiply(new bn(multiplicand.toString(16), 16)).toString(16);
+        //} else {
+            // This throws away a LOT of precision
+            var scalarStr = (parseFloat(scalar.toString(10)) * multiplicand).toString(16);
+        //}
+
+        var decimalIdx = scalarStr.indexOf(".");
+        if(decimalIdx > 0){
+            // Round the number
+            scalarStr = scalarStr.slice(0, decimalIdx);
+        }
+        var int_rep = new bn(scalarStr, 16);
+
         // NOTE: Large javascript integers are floats...
-        var int_rep = new bn(
-            //Math.round
-            (
-                scalar * Math.pow(BASE, -exponent)
-            ).toString(BASE), BASE);
-        if(int_rep.compareTo(public_key.max_int) >= 0){
-            console.log('Integer is too large?');
-            console.log(int_rep.toString());
-            throw "Integer needs to be within +/- " + public_key.max_int;
+        //var int_rep = new bn(scaledScalarStr, 16);
+
+        if(int_rep.abs().compareTo(public_key.max_int) >= 0){
+            console.log('Scalar is too large for encoding with this public key');
+            console.log(int_rep.toString(16));
+            console.log(public_key.max_int.toString(16));
+            throw "ValueError"; //, "Integer needs to be within +/- " + public_key.max_int;
         }
 
         // Wrap negative numbers by adding n
-        return encodedNumberConstructor(public_key, int_rep % public_key.n, exponent);
+        return encodedNumberConstructor(public_key, int_rep.mod(public_key.n), exponent);
     };
 
     return encodedNumberConstructor;
