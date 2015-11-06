@@ -23,11 +23,12 @@ Currently relies on jsbn and crypto.
   - [ ] in-browser tests ([crypto-browserify](https://github.com/dominictarr/crypto-browserify) may come in handy)
 
 
-# Paillier 
+## Paillier Cryptosystem
+
 
 The homomorphic properties of the paillier crypto system are:
 
-Encrypted numbers can be multiplied by a non encrypted scalar.
-Encrypted numbers can be added together.
-Encrypted numbers can be added to non encrypted scalars.
+* Encrypted numbers can be multiplied by a non encrypted scalar.
+* Encrypted numbers can be added together.
+* Encrypted numbers can be added to non encrypted scalars.
 

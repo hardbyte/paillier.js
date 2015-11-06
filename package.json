@@ -1,6 +1,6 @@
 {
   "name": "homomorphicjs",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Paillier Encryption for Javascript",
   "main": "main.js",
   "scripts": {
@@ -8,10 +8,20 @@
   },
   "author": "Brian Thorne",
   "repository": "https://github.com/hardbyte/paillier.js",
-  "license": "GPLv3",
-  "dependencies": {
-    "jsbn": "0.0.0",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "faucet": "0.0.1",
+    "gulp": "^3.8.10",
+    "gulp-size": "^2.0.0",
+    "gulp-typedoc": "^1.2.1",
+    "gulp-tslint": "^3.3.1",
+    "gulp-tslint-stylish": "^1.0.4",
+    "gulp-typescript": "^2.8.3",
     "tape": "3.0.1",
-    "faucet": "0.0.1"
+    "ts-node": "^0.2.4",
+    "typescript": "~1.6.0"
+  },
+  "dependencies": {
+    "jsbn": "0.0.0"
   }
 }
