@@ -8,7 +8,7 @@
   },
   "author": "Brian Thorne",
   "repository": "https://github.com/hardbyte/paillier.js",
-  "license": "GPLv3",
+  "license": "Apache 2.0",
   "dependencies": {
     "jsbn": "0.0.0",
     "tape": "3.0.1",
